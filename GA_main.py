@@ -1,5 +1,3 @@
-#тестовое изменение
-
 from typing import List, Tuple, Callable
 import random
 import numpy as np
@@ -7,27 +5,20 @@ import numpy as np
 
 class GeneticAlgorithm:
 
-    def __init__(self) -> None:
+    def __init__(self, population_size, mutation_rate, max_number_iterations) -> None:
         '''
         Создание объекта класса GeneticAlgorithm
         '''
-        self.cost_matrix = random_matrix_15x15 = np.random.randint(1, 11, size=(15, 15))#[[1, 2, 3, 4, 5, 6, 7, 8],
-        #                     [2, 3, 4, 5, 6, 7, 8, 1],
-        #                     [3, 4, 5, 6, 7, 8, 1, 2],
-        #                     [4, 5, 6, 7, 8, 1, 2, 3],
-        #                     [5, 6, 7, 8, 1, 2, 3, 4],
-        #                     [6, 7, 8, 1, 2, 3, 4, 5],
-        #                     [7, 8, 1, 2, 3, 4, 5, 6],
-        #                     [8, 1, 2, 3, 4, 5, 6, 7]]
-        # self.n = len(self.cost_matrix[0]) ?? всегда так ? мне так кажется друзья!
-        self.population_size = 50
+        self.mutation_rate = mutation_rate
+        self.population_size = population_size
+        self.max_number_iterations = max_number_iterations
+        self.vector_size = 20
+        self.min_cost = 1
+        self.max_cost = 100
+        self.cost_matrix = np.random.randint(self.min_cost, self.max_cost, size=(self.vector_size, self.vector_size))
         self.population = []
-        self.min_fitness = float('inf')
 
-    #def print_all_specimen(self):
-
-
-    def generation_individual(self) -> List[int]: #тут разве не n = len(self.cost_matrix[0])  ???
+    def generation_individual(self) -> List[int]:
         """
         Генерирует случайную особь - допустимое решение задачи о назначениях.
 
@@ -36,14 +27,8 @@ class GeneticAlgorithm:
         2. К каждому элементу добавляется 1 (так как permutation возвращает значения от 0 до n-1)
         3. Возвращается вектор назначений = позиция - объект, число - номер назначенного ресурса
         """
-
-        #if n is None:
-        n = len(self.cost_matrix[0])
-        x = list(range(1,n+1))
-        random.shuffle(x)
-        # x = np.random.permutation(n) + 1
-        return x
-        # return x.tolist()
+        x = np.random.permutation(self.vector_size) + 1
+        return x.tolist()
 
     def generate_population(self) -> List[List[int]]:
         """
@@ -58,7 +43,7 @@ class GeneticAlgorithm:
             self.population.append(self.generation_individual())
         return self.population
 
-    def is_acceptable(self, solution: List[int]) -> bool:
+    def is_acceptable(self, specimen: List[int]) -> bool:
         """
         Проверка решения на допустимость
 
@@ -67,15 +52,15 @@ class GeneticAlgorithm:
         (В множестве хранятся только уникальные элементы).
 
         Parameters:
-        solution : List[int] - особь (массив чисел для проверки)
+        specimen : List[int] - особь (массив чисел для проверки)
 
         Returns: bool
             True - решение допустимо,
             False - решение недопустимо
         """
-        return len(solution) == len(set(solution))
+        return len(specimen) == len(set(specimen))
 
-    def fitness_func(self, specimen: list) -> int:
+    def specimen_fitness(self, specimen: list) -> int:
         '''
         Подсчет приспособленности особи
         :return: Значение функции приспособленности особи
@@ -91,28 +76,30 @@ class GeneticAlgorithm:
         '''
         result_fitness = 0
         # Считаем приспособленность особи
-        for k in range(len(self.cost_matrix[0])):
-            result_fitness += self.cost_matrix[specimen[k] - 1][k]  
+        for i in range(self.vector_size):
+            result_fitness += self.cost_matrix[specimen[i] - 1][i]  
 
         return result_fitness
 
-    def fitness_population_func(self) -> int:
+    def population_fitness(self) -> Tuple[int, List[int]]:
         '''
         Подсчет приспособленности популяции
-        Returns: 
+        Returns:
+        min_fitness - значение лучшей приспособленности
+        best_specimen - самая приспособленная особь
         Алгоритм: вычисляем приспособленность для каждой особи, после чего выбираем минимальное значение.
         '''
-        if not self.population:
-            return float('inf')
-    
         min_fitness = float('inf')
-        for individual in self.population:
-            current_fitness = self.fitness_func(individual)
-            # if current_fitness < min_fitness:
-            min_fitness = min(current_fitness,min_fitness)
-        return min_fitness
 
-    def mutation_assignment(self, solution: List[int], mutation_rate: float = 0.1) -> List[int]:
+        for specimen in self.population:
+            current_fitness = self.specimen_fitness(specimen)
+            if current_fitness < min_fitness:
+                min_fitness = current_fitness
+                best_specimen = specimen
+
+        return min_fitness, best_specimen
+    
+    def mutation_specimen(self, specimen: List[int], mutation_rate: float) -> List[int]:
         """
         Выполняет мутацию для особи.
 
@@ -120,7 +107,7 @@ class GeneticAlgorithm:
         что сохраняет допустимость решения (все элементы остаются уникальными).
 
         Parameters:
-        solution : List[int] - Текущее решение
+        specimen : List[int] - Текущее решение
         mutation_rate : float, optional - Вероятность применения мутации к решению (по умолчанию 0.1)
 
         Returns:
@@ -128,20 +115,19 @@ class GeneticAlgorithm:
         """
 
         # Создаем копию решения чтобы не изменять оригинал
-        mutated_solution = solution.copy()
+        mutated_specimen = specimen.copy()
 
         # Проверяем, нужно ли применять мутацию
         if random.random() < mutation_rate:
             # Выбираем два случайных различных индекса
-            idx1, idx2 = random.sample(range(len(solution)), 2)
+            i, j = random.sample(range(self.vector_size), 2)
 
             # Меняем местами элементы на выбранных позициях
-            mutated_solution[idx1], mutated_solution[idx2] = mutated_solution[idx2], mutated_solution[idx1]
+            mutated_specimen[i], mutated_specimen[j] = mutated_specimen[j], mutated_specimen[i]
 
-        return mutated_solution
+        return mutated_specimen
 
-
-    def selection_mu_plus_lambda(self, parents: List[List[int]], offspring: List[List[int]],
+    def shaping_next_generation(self, parents: List[List[int]], offspring: List[List[int]],
                                  fitness_func: callable, mu: int) -> List[List[int]]:
         """
         Выполняет отбор особей для формирования следующего поколения.
@@ -170,7 +156,6 @@ class GeneticAlgorithm:
 
         return selected_individuals
 
-
     def crossover(self, parent1: List[int], parent2: List[int]) -> Tuple[List[int], List[int]]:
         """
         Кроссовер. Создание двух потомков из двух родителей с одной точкой разрыва.
@@ -187,17 +172,14 @@ class GeneticAlgorithm:
         Tuple[List[int], List[int]] - Два потомка
         """
 
-        size = len(parent1)
-
         # Выбираем одну случайную точку разрыва
-        crossover_point = random.randint(1, size - 1)
+        crossover_point = random.randint(1, self.vector_size - 1) # ДВ сказала (0, size)
 
         # Создаем потомков
         child1 = self.create_child(parent1, parent2, crossover_point)
         child2 = self.create_child(parent2, parent1, crossover_point)
 
         return child1, child2
-
 
     def create_child(self, main_parent: List[int], secondary_parent: List[int],
                      crossover_point: int) -> List[int]:
@@ -212,9 +194,7 @@ class GeneticAlgorithm:
         Returns:
         List[int] - Потомок
         """
-
-        size = len(main_parent)
-        child = [-1] * size
+        child = [-1] * self.vector_size
 
         # Копируем сегмент от начала до точки разрыва из основного родителя
         child[:crossover_point] = main_parent[:crossover_point]
@@ -227,7 +207,7 @@ class GeneticAlgorithm:
 
         for gene in secondary_parent:
             # Если уже заполнили все позиции - выходим
-            if current_idx >= size:
+            if current_idx >= self.vector_size:
                 break
 
             # Если гена еще нет в потомке - добавляем
@@ -238,8 +218,6 @@ class GeneticAlgorithm:
 
         return child
 
-
-    
     def run_one_iteration(self) -> Tuple[int, List[List[int]]]:
         """
         Запускает одну итерацию генетического алгоритма.
@@ -252,23 +230,19 @@ class GeneticAlgorithm:
             self.generate_population()
         
         # 2. Выбираем родителей (пока случайно, потом добавишь инбридинг)
-        parents = random.sample(self.population, 2)
+        parents1, parents2 = random.sample(self.population, 2)
         
         # 3. Скрещиваем
-        offspring1, offspring2 = self.crossover(parents[0], parents[1])
-        print(len(parents))
-#        print(len(offspring2))
-        # # 4. Мутируем потомков
-        # for i in self.population:
-        #     self.mutation_assignment(i)
-        offspring1 = self.mutation_assignment(offspring1)
-        offspring2 = self.mutation_assignment(offspring2)
+        offspring1, offspring2 = self.crossover(parents1, parents2)
+
+        offspring1 = self.mutation_specimen(offspring1, self.mutation_rate)
+        offspring2 = self.mutation_specimen(offspring2, self.mutation_rate)
         
         # 5. Отбор (µ + λ)
-        new_population = self.selection_mu_plus_lambda(
+        new_population = self.shaping_next_generation(
             self.population, 
             [offspring1, offspring2],
-            self.fitness_func,
+            self.specimen_fitness,
             self.population_size
         )
         
@@ -276,21 +250,22 @@ class GeneticAlgorithm:
         self.population = new_population
         
         # 7. Возвращаем результаты
-        best_fitness = self.fitness_population_func()
-        return best_fitness, self.population
+        best_fitness, best_specimen = self.population_fitness()
+        return best_fitness, best_specimen
 
 def main():
     print("HI!")
      # Создаем объект алгоритма
-    ga = GeneticAlgorithm()
+    ga = GeneticAlgorithm(population_size = 30, mutation_rate = 0.2, max_number_iterations = 4000)
     
     # Генерируем начальную популяцию
     ga.generate_population()
-    print(ga.fitness_population_func())
-    for _ in range (5000):
-        best, arr = ga.run_one_iteration()
+    print(f"Начальная приспособленность: {ga.population_fitness()[0]}, лучшая особь: {ga.population_fitness()[1]}")
 
-    print(best)
+    for i in range (1, ga.max_number_iterations):
+        best_fitness, best_specimen = ga.run_one_iteration()
+        if i % 100 == 0:
+            print(f"Приспособленность на {i} шаге: {best_fitness}, лучшая особь: {best_specimen}")
 
 if __name__ == "__main__":
     main()
