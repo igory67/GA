@@ -1,39 +1,48 @@
-from typing import List, Tuple, Callable
+from typing import List, Tuple
 import random
 import numpy as np
 
+"""
+    Знать основные структуры хранения данных и их методы, используемые в коде.
+                
+    Шаблон описания функции:
+        Название:
+        Параметры:
+        Алгоритм:
+        Что возвращает:
+
+    Осталось:
+1. Функция отбора в новую популяцию (добавь в run_one_iteration(self))
+2. Приспособленность популяция (изменить с минимального на среднее) - ???
+3. Нужно ли хранить самую приспособленную особь?
+Все остальное вроде не срочно
+"""
+
 class Specimen:
     def __init__(self, vector: List[int], fitness: float = float('inf')):
-        self.vector = vector
-        self.fitness = fitness
+        self.vector = vector # допустимое решение
+        self.fitness = fitness # приспособленность особи
 
-"""
-        git commit -m "убрал +1 в генерации; добавил стагнацию, узнать, как ее делать ваще выбирать, описания меняю + шаблон вот ввел"
-        todo узнать всем чо такое список массив и тд тп
-                
-                Шаблон описания функции:
-                    Название
-                    Параметры:
-                    Алгоритм:
-                    Что возвращает
 
-        а
-"""
 class GeneticAlgorithm:
 
     def __init__(self, population_size, mutation_rate, max_number_iterations, stagnation) -> None:
         '''
         Создание объекта класса GeneticAlgorithm
         '''
-        self.mutation_rate = mutation_rate #p_m = вер. мутации
-        self.population_size = population_size #N
-        self.max_number_iterations = max_number_iterations #T
-        self.stagnation = stagnation #epsilon разницы между поколениями
-        self.vector_size = 20 #n
-        self.min_cost = 1 # данные для заполнения (границы значений)
-        self.max_cost = 100 # матрицы стоимостей случайными значениями
-        self.cost_matrix = np.random.randint(self.min_cost, self.max_cost, size=(self.vector_size, self.vector_size)) #непосредственно заполнение
-        self.population: List[Specimen] = []
+        self.mutation_rate = mutation_rate # p_m - вероятность мутации
+        self.population_size = population_size # N - размер популяции
+        self.max_number_iterations = max_number_iterations # T - максимальное количество итераций
+        self.stagnation = stagnation # epsilon - разницы между поколениями
+        self.vector_size = 20 # n - количество предприятий (ресурсов)
+
+        # данные для заполнения матрицы стоимостей случайными значениями
+        self.min_cost = 1 # минимальное значение матрицы
+        self.max_cost = 100 # максимальное значение матрицы
+
+        self.cost_matrix = np.random.randint(self.min_cost, self.max_cost, 
+                                             size=(self.vector_size, self.vector_size)) # заполнение матрицы
+        self.population: List[Specimen] = [] # популяция (массив особей)
 
     def generation_individual(self) -> Specimen:
         """
@@ -67,8 +76,6 @@ class GeneticAlgorithm:
             self.population.append(specimen)
 
         return self.population
-
-    
 
     def is_acceptable(self, specimen: Specimen) -> bool:
         """
@@ -109,7 +116,7 @@ class GeneticAlgorithm:
         result_fitness = 0
         # Считаем приспособленность особи
         for i in range(self.vector_size):
-            result_fitness += self.cost_matrix[specimen.vector[i] - 1][i]
+            result_fitness += self.cost_matrix[specimen.vector[i]][i]
         
         specimen.fitness = result_fitness
         return result_fitness
@@ -201,7 +208,8 @@ class GeneticAlgorithm:
         Tuple[Specimen, Specimen] - Два потомка
         """
         # Выбираем одну случайную точку разрыва
-        crossover_point = random.randint(1, self.vector_size - 1) # ДВ сказала (0, size)
+        # crossover_point = random.randint(1, self.vector_size - 1) # ДВ сказала (0, size)
+        crossover_point = random.randint(0, self.vector_size - 1)
 
         # Создаем векторы потомков
         child1_vector = self.create_child_vector(parent1.vector, parent2.vector, crossover_point)
@@ -253,10 +261,84 @@ class GeneticAlgorithm:
 
         return child_vector
 
+    def hamming_distance(self, vector1: List[int], vector2: List[int]) -> int:
+        """
+        Вычисляет расстояние Хэмминга между двумя векторами.
+        Расстояние Хэмминга - это количество позиций, в которых соответствующие символы различны.
+        """
+        return sum(el1 != el2 for el1, el2 in zip(vector1, vector2))
+
+    def select_parents_inbreeding(self) -> Tuple[Specimen, Specimen]:
+        """
+        Выбирает пару родителей с использованием инбридинга.
+        1. Первый родитель выбирается случайным образом.
+        2. Для всех остальных особей вычисляется расстояние Хэмминга до первого родителя.
+        3. Вторым родителем становится особь с минимальным расстоянием Хэмминга.
+        """
+        parent1 = random.choice(self.population)
+        
+        other_specimens = [s for s in self.population if s is not parent1]
+        
+        if not other_specimens:
+            # Если в популяции только одна особь, возвращаем ее дважды
+            return parent1, parent1
+
+        min_dist = float('inf')
+        parent2 = None
+
+        for specimen in other_specimens:
+            dist = self.hamming_distance(parent1.vector, specimen.vector)
+            if dist < min_dist:
+                min_dist = dist
+                parent2 = specimen
+        
+        return parent1, parent2
+
+    def run_one_iteration(self) -> Tuple[int, Specimen]:
+        """
+        Запускает одну итерацию генетического алгоритма.
+        
+        Returns:
+        Tuple[int, Specimen] - лучшая приспособленность и лучшая особь
+        """
+        # 1. Проверяем, сгенерирована ли популяция
+        if not self.population:
+            self.generate_population()
+        
+
+        offspring_population = [] # массив потомков
+        num_pairs = self.population_size // 2 # количество пар
+
+        # 2. Скрещиваем n // 2 пар 
+        for _ in range(num_pairs):
+            # выбираем два родителя
+            parent1, parent2 = self.select_parents_inbreeding()
+            
+            # скрещиваем родителей, получаем двух потомков
+            offspring1, offspring2 = self.crossover(parent1, parent2)
+
+            offspring1 = self.mutation_specimen(offspring1)
+            offspring2 = self.mutation_specimen(offspring2)
+            
+            offspring_population.extend([offspring1, offspring2])
+
+        # 3. Отбор в новую популяцию
+        new_population = self.shaping_next_generation(
+            self.population, 
+            offspring_population
+        )
+        self.population = new_population
+        
+        # 4. Возвращаем результаты
+        best_fitness, best_specimen = self.population_fitness()
+
+        return best_fitness, best_specimen
+
+
 def main():
     print("HI!")
      # Создаем объект алгоритма
-    ga = GeneticAlgorithm(population_size = 30, mutation_rate = 0.2, max_number_iterations = 4000)
+    ga = GeneticAlgorithm(population_size = 30, mutation_rate = 0.2, max_number_iterations = 500, stagnation = 0)
     
     # Генерируем начальную популяцию
     ga.generate_population()
@@ -265,7 +347,7 @@ def main():
 
     for i in range (1, ga.max_number_iterations):
         best_fitness, best_specimen = ga.run_one_iteration()
-        if i % 100 == 0:
+        if i % 10 == 0:
             print(f"Приспособленность на {i} шаге: {best_fitness}, лучшая особь: {best_specimen.vector}")
 
 if __name__ == "__main__":
