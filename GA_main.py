@@ -6,21 +6,33 @@ class Specimen:
     def __init__(self, vector: List[int], fitness: float = float('inf')):
         self.vector = vector
         self.fitness = fitness
-        
 
+"""
+        git commit -m "убрал +1 в генерации; добавил стагнацию, узнать, как ее делать ваще выбирать, описания меняю + шаблон вот ввел"
+        todo узнать всем чо такое список массив и тд тп
+                
+                Шаблон описания функции:
+                    Название
+                    Параметры:
+                    Алгоритм:
+                    Что возвращает
+
+        а
+"""
 class GeneticAlgorithm:
 
-    def __init__(self, population_size, mutation_rate, max_number_iterations) -> None:
+    def __init__(self, population_size, mutation_rate, max_number_iterations, stagnation) -> None:
         '''
         Создание объекта класса GeneticAlgorithm
         '''
-        self.mutation_rate = mutation_rate
-        self.population_size = population_size
-        self.max_number_iterations = max_number_iterations
-        self.vector_size = 20
-        self.min_cost = 1
-        self.max_cost = 100
-        self.cost_matrix = np.random.randint(self.min_cost, self.max_cost, size=(self.vector_size, self.vector_size))
+        self.mutation_rate = mutation_rate #p_m = вер. мутации
+        self.population_size = population_size #N
+        self.max_number_iterations = max_number_iterations #T
+        self.stagnation = stagnation #epsilon разницы между поколениями
+        self.vector_size = 20 #n
+        self.min_cost = 1 # данные для заполнения (границы значений)
+        self.max_cost = 100 # матрицы стоимостей случайными значениями
+        self.cost_matrix = np.random.randint(self.min_cost, self.max_cost, size=(self.vector_size, self.vector_size)) #непосредственно заполнение
         self.population: List[Specimen] = []
 
     def generation_individual(self) -> Specimen:
@@ -28,11 +40,10 @@ class GeneticAlgorithm:
         Генерирует случайную особь - допустимое решение задачи о назначениях.
 
         Алгоритм:
-        1. Создается перестановка чисел от 1 до n с помощью np.random.permutation
-        2. К каждому элементу добавляется 1 (так как permutation возвращает значения от 0 до n-1)
-        3. Возвращается объект Specimen с сгенерированным вектором.
+        1. Создается перестановка чисел от 0 до n-1 с помощью np.random.permutation
+        2. Возвращается объект Specimen с полученной перестановкой (преобразованной в список) в виде значений.
         """
-        x = np.random.permutation(self.vector_size) + 1
+        x = np.random.permutation(self.vector_size)
         return Specimen(x.tolist())
 
     def generate_population(self) -> List[Specimen]:
@@ -40,44 +51,51 @@ class GeneticAlgorithm:
         Генерирует популяцию особей 
 
         Алгоритм:
-        1. Создается особь N(self.population_size) раз
+        1. Создается особь (self.population_size=N) раз
         2. Каждой особи рассчитывается приспособленность
         3. Возвращается популяция особей.
         """
         self.population = []
-        for _ in range (self.population_size):
+        for _ in range (self.population_size): #генерируем N раз
             # генерируем особь
             specimen = self.generation_individual()
 
-            # считаем приспособленность особи и записываем значение в поле
+            # считаем приспособленность особи и записываем значение в соответствующее поле класса особи
             self.specimen_fitness(specimen)
 
-            # добавляем особь в популяцию
+            # добавляем особь в популяцию (в список)
             self.population.append(specimen)
+
         return self.population
+
+    
 
     def is_acceptable(self, specimen: Specimen) -> bool:
         """
         Проверка решения на допустимость
 
         Функция реализует проверку уникальности элементов вектора особи.
-        Использует сравнение длины списка и множества для проверки уникальности.
-        (В множестве хранятся только уникальные элементы).
+        Использует сравнение длины списка и множества (полученного из этого списка) для проверки уникальности его элементов.
+        (В множестве хранятся только уникальные элементы, поэтому длины будут равны только если в списке тоже только уникальные аргументы).
 
-        Parameters:
-        specimen : Specimen - особь для проверки
-
-        Returns: bool
+        Params:
+            Specimen: - особь для проверки
+            self: - сам класс
+        
+        Return: 
+            bool:
             True - решение допустимо,
             False - решение недопустимо
         """
-        return len(specimen.vector) == len(set(specimen.vector))
+        return (len(specimen.vector) == len(set(specimen.vector)))
 
     def specimen_fitness(self, specimen: Specimen) -> int:
         '''
         Подсчет приспособленности особи
-        :param specimen: Особь для подсчета приспособленности
-        :return: Значение функции приспособленности особи
+
+        Параметры:
+        specimen: Особь для подсчета приспособленности
+        Значение функции приспособленности особи
 
         Алгоритм: "Имеется особь X. Также известна матрица стоимости C.
         n - количество видов ресурсов/объектов
@@ -234,39 +252,6 @@ class GeneticAlgorithm:
                 current_idx += 1
 
         return child_vector
-
-    def run_one_iteration(self) -> Tuple[int, Specimen]:
-        """
-        Запускает одну итерацию генетического алгоритма.
-        
-        Returns:
-        Tuple[int, Specimen] - лучшая приспособленность и лучшая особь
-        """
-        # 1. Проверяем, сгенерирована ли популяция
-        if not self.population:
-            self.generate_population()
-        
-        # 2. Выбираем родителей (пока случайно, потом добавишь инбридинг)
-        parents1, parents2 = random.sample(self.population, 2)
-        
-        # 3. Скрещиваем
-        offspring1, offspring2 = self.crossover(parents1, parents2)
-
-        offspring1 = self.mutation_specimen(offspring1)
-        offspring2 = self.mutation_specimen(offspring2)
-        
-        # 5. Отбор (µ + λ)
-        new_population = self.shaping_next_generation(
-            self.population, 
-            [offspring1, offspring2]
-        )
-        
-        # 6. Обновляем популяцию
-        self.population = new_population
-        
-        # 7. Возвращаем результаты
-        best_fitness, best_specimen = self.population_fitness()
-        return best_fitness, best_specimen
 
 def main():
     print("HI!")
