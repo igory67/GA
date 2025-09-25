@@ -121,8 +121,20 @@ class GeneticAlgorithm:
         
         specimen.fitness = result_fitness
         return result_fitness
-
-    def population_fitness(self) -> Tuple[int, Specimen]:
+    
+    def population_fitness(self) -> float:
+        '''
+        Подсчет средней приспособленности популяции.
+        Returns:
+        float: Среднее значение приспособленности по всей популяции.
+        '''
+        if not self.population:
+            return 0.0
+        
+        total_fitness = sum(specimen.fitness for specimen in self.population)
+        return total_fitness / len(self.population)
+    
+    def find_best_specimen(self) -> Tuple[int, Specimen]:
         '''
         Подсчет приспособленности популяции
         Returns:
@@ -193,9 +205,9 @@ class GeneticAlgorithm:
 
         return selected_individuals
 
-    def crossover(self, parent1: Specimen, parent2: Specimen) -> Tuple[Specimen, Specimen]:
+    def crossover(self, parent1: Specimen, parent2: Specimen) -> Specimen:
         """
-        Кроссовер. Создание двух потомков из двух родителей с одной точкой разрыва.
+        Кроссовер. Создание потомка из двух родителей с одной точкой разрыва.
 
         Кроссовер сохраняет сегмент от начала до точки разрыва из первого родителя
         и заполняет оставшиеся позиции генами из второго родителя в порядке их следования,
@@ -206,24 +218,20 @@ class GeneticAlgorithm:
         parent2 : Specimen - Второй родитель
 
         Returns:
-        Tuple[Specimen, Specimen] - Два потомка
+        Specimen - потомок
         """
         # Выбираем одну случайную точку разрыва
-        # crossover_point = random.randint(1, self.vector_size - 1) # ДВ сказала (0, size)
         crossover_point = random.randint(0, self.vector_size - 1)
 
-        # Создаем векторы потомков
-        child1_vector = self.create_child_vector(parent1.vector, parent2.vector, crossover_point)
-        child2_vector = self.create_child_vector(parent2.vector, parent1.vector, crossover_point)
+        # Создаем вектор потомка
+        child_vector = self.create_child_vector(parent1.vector, parent2.vector, crossover_point)
 
-        child1 = Specimen(child1_vector)
-        child2 = Specimen(child2_vector)
+        child = Specimen(child_vector)
 
-        # считаем приспособленность особей и записываем значение в поле
-        self.specimen_fitness(child1)
-        self.specimen_fitness(child2)
+        # считаем приспособленность особи и записываем значение в поле
+        self.specimen_fitness(child)
 
-        return child1, child2
+        return child
 
     def create_child_vector(self, main_parent_vector: List[int], secondary_parent_vector: List[int],
                             crossover_point: int) -> List[int]:
@@ -295,6 +303,43 @@ class GeneticAlgorithm:
         
         return parent1, parent2
 
+    def roulette_selection(self):
+        """
+        Улучшенная версия с явным построением рулетки
+        """
+        
+        # 1. Используем ранжирование вместо инвертирования
+        fitness_values = [specimen.fitness for specimen in self.population]
+
+        # Преобразуем для минимизации (меньше fitness = лучше)
+        max_fitness = max(fitness_values)
+        transformed_fitness = [max_fitness - f + 1e-6 for f in fitness_values]
+
+        total_fitness = sum(transformed_fitness)
+        expected_counts = [f * len(self.population) / total_fitness for f in transformed_fitness]
+
+        # 2. Remainder Stochastic Sampling
+        pre_new_population = []
+
+        # Гарантированная часть + дробная
+        for i, count in enumerate(expected_counts):
+            integer_part = int(count)
+            for _ in range(integer_part):
+                pre_new_population.append((self.population[i], i))
+            
+            frac_part = count - int(count)
+            pointer = random.uniform(0, 1)
+            if pointer <= frac_part:
+                pre_new_population.append((self.population[i], i))
+        
+        new_population = []
+        for _ in range (len(self.population)):
+            pointer = random.randint(0, len(pre_new_population) - 1)
+            new_gen = self.population[pre_new_population[pointer][1]]
+            new_population.append(new_gen)
+        
+        self.population = new_population
+
     def run_one_iteration(self) -> Tuple[int, Specimen]:
         """
         Запускает одну итерацию генетического алгоритма.
@@ -316,22 +361,17 @@ class GeneticAlgorithm:
             parent1, parent2 = self.select_parents_inbreeding()
             
             # скрещиваем родителей, получаем двух потомков
-            offspring1, offspring2 = self.crossover(parent1, parent2)
+            offspring = self.crossover(parent1, parent2)
 
-            offspring1 = self.mutation_specimen(offspring1)
-            offspring2 = self.mutation_specimen(offspring2)
+            offspring = self.mutation_specimen(offspring)
             
-            offspring_population.extend([offspring1, offspring2])
+            offspring_population.append(offspring)
 
         # 3. Отбор в новую популяцию
-        new_population = self.shaping_next_generation(
-            self.population, 
-            offspring_population
-        )
-        self.population = new_population
+        self.roulette_selection()
         
         # 4. Возвращаем результаты
-        best_fitness, best_specimen = self.population_fitness()
+        best_fitness, best_specimen = self.find_best_specimen()
 
         return best_fitness, best_specimen
 
@@ -343,7 +383,7 @@ def main():
     
     # Генерируем начальную популяцию
     ga.generate_population()
-    initial_fitness, initial_specimen = ga.population_fitness()
+    initial_fitness, initial_specimen = ga.find_best_specimen()
     print(f"Начальная приспособленность: {initial_fitness}, лучшая особь: {initial_specimen.vector}")
 
     for i in range (1, ga.max_number_iterations):
