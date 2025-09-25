@@ -2,22 +2,6 @@ from typing import List, Tuple
 import random
 import numpy as np
 
-"""
-    Знать основные структуры хранения данных и их методы, используемые в коде.
-                
-    Шаблон описания функции:
-        Название:
-        Параметры:
-        Алгоритм:
-        Что возвращает:
-
-    Осталось:
-1. Функция отбора в новую популяцию (добавь в run_one_iteration(self))
-2. Приспособленность популяция (изменить с минимального на среднее) - ???
-3. Нужно ли хранить самую приспособленную особь?
-4. Критерии остановки (есть только T, эпсилон нет)
-Все остальное вроде не срочно
-"""
 
 class Specimen:
     def __init__(self, vector: List[int], fitness: float = float('inf')):
@@ -142,14 +126,14 @@ class GeneticAlgorithm:
         best_specimen - самая приспособленная особь
         Алгоритм: выбираем лучшую особь из популяции по ее приспособленности.
         '''
-        min_fitness = float('inf')
+        best_fitness = float('inf')
 
         for specimen in self.population:
-            if specimen.fitness < min_fitness:
-                min_fitness = specimen.fitness
+            if specimen.fitness < best_fitness:
+                best_fitness = specimen.fitness
                 best_specimen = specimen
 
-        return min_fitness, best_specimen
+        return best_fitness, best_specimen
     
     def mutation_specimen(self, specimen: Specimen) -> Specimen:
         """
@@ -179,31 +163,6 @@ class GeneticAlgorithm:
         # считаем приспособленность особи и записываем значение в поле
         self.specimen_fitness(mutated_specimen)
         return mutated_specimen
-
-    def shaping_next_generation(self, parents: List[Specimen], offspring: List[Specimen]) -> List[Specimen]:
-        """
-        Выполняет отбор особей для формирования следующего поколения.
-
-        Из объединенного пула родителей и потомков выбираются лучшие особи
-        на основе значения fitness.
-
-        Parameters:
-        parents : List[Specimen] - Список родителей текущего поколения
-        offspring : List[Specimen] - Список потомков
-
-        Returns:
-        List[Specimen] - Список лучших особей для следующего поколения
-        """
-        # Объединяем родителей и потомков в один пул
-        combined_pool = parents + offspring
-
-        # Сортируем объединенный пул по значению fitness-функции (чем меньше, тем лучше)
-        sorted_pool = sorted(combined_pool, key=lambda s: s.fitness)
-
-        # Выбираем mu лучших особей из отсортированного пула
-        selected_individuals = sorted_pool[:self.population_size]
-
-        return selected_individuals
 
     def crossover(self, parent1: Specimen, parent2: Specimen) -> Specimen:
         """
@@ -305,37 +264,34 @@ class GeneticAlgorithm:
 
     def roulette_selection(self):
         """
-        Улучшенная версия с явным построением рулетки
+        Отбор особей в новую популяцию с помощью рулетки
         """
-        
-        # 1. Используем ранжирование вместо инвертирования
+        # Используем ранжирование вместо инвертирования
         fitness_values = [specimen.fitness for specimen in self.population]
 
-        # Преобразуем для минимизации (меньше fitness = лучше)
-        max_fitness = max(fitness_values)
-        transformed_fitness = [max_fitness - f + 1e-6 for f in fitness_values]
+        total_fitness = self.population_fitness()
+        expected_counts = [total_fitness / fitness for fitness in fitness_values]
 
-        total_fitness = sum(transformed_fitness)
-        expected_counts = [f * len(self.population) / total_fitness for f in transformed_fitness]
-
-        # 2. Remainder Stochastic Sampling
-        pre_new_population = []
+        roulette = []
 
         # Гарантированная часть + дробная
         for i, count in enumerate(expected_counts):
             integer_part = int(count)
+
             for _ in range(integer_part):
-                pre_new_population.append((self.population[i], i))
+                roulette.append(i)
             
             frac_part = count - int(count)
             pointer = random.uniform(0, 1)
             if pointer <= frac_part:
-                pre_new_population.append((self.population[i], i))
-        
+                roulette.append(i)
+
         new_population = []
-        for _ in range (len(self.population)):
-            pointer = random.randint(0, len(pre_new_population) - 1)
-            new_gen = self.population[pre_new_population[pointer][1]]
+
+        # Запуск рулетки N раз
+        for _ in range (self.population_size): 
+            pointer = random.randint(0, len(roulette) - 1)
+            new_gen = self.population[roulette[pointer]]
             new_population.append(new_gen)
         
         self.population = new_population
@@ -353,9 +309,9 @@ class GeneticAlgorithm:
         
 
         offspring_population = [] # массив потомков
-        num_pairs = self.population_size // 2 # количество пар
+        num_pairs = self.population_size # количество пар
 
-        # 2. Скрещиваем n // 2 пар 
+        # 2. Скрещиваем n пар 
         for _ in range(num_pairs):
             # выбираем два родителя
             parent1, parent2 = self.select_parents_inbreeding()
@@ -379,17 +335,21 @@ class GeneticAlgorithm:
 def main():
     print("HI!")
      # Создаем объект алгоритма
-    ga = GeneticAlgorithm(population_size = 30, mutation_rate = 0.2, max_number_iterations = 500, stagnation = 0)
+    ga = GeneticAlgorithm(population_size = 20, mutation_rate = 0.2, max_number_iterations = 20, stagnation = 0)
     
     # Генерируем начальную популяцию
     ga.generate_population()
     initial_fitness, initial_specimen = ga.find_best_specimen()
-    print(f"Начальная приспособленность: {initial_fitness}, лучшая особь: {initial_specimen.vector}")
+    population_fitness = ga.population_fitness()
+    print(f"Начальная приспособленность популяции = {round(population_fitness, 1)}")
+    print(f"Приспособленность лучшей особи = {round(initial_fitness, 1)}, вектор = {initial_specimen.vector}\n")
 
     for i in range (1, ga.max_number_iterations):
         best_fitness, best_specimen = ga.run_one_iteration()
-        if i % 10 == 0:
-            print(f"Приспособленность на {i} шаге: {best_fitness}, лучшая особь: {best_specimen.vector}")
+        population_fitness = ga.population_fitness()
+        if i % 1 == 0:
+            print(f"{i}. Приспособленность популяции = {round(population_fitness, 1)}")
+            print(f" Приспособленность лучшей особи = {round(best_fitness, 1)}, вектор = {best_specimen.vector}\n")
 
 if __name__ == "__main__":
     main()
