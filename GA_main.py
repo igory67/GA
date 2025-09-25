@@ -67,8 +67,10 @@ class GeneticAlgorithm:
         Проверка решения на допустимость
 
         Функция реализует проверку уникальности элементов вектора особи.
-        Использует сравнение длины списка и множества (полученного из этого списка) для проверки уникальности его элементов.
-        (В множестве хранятся только уникальные элементы, поэтому длины будут равны только если в списке тоже только уникальные аргументы).
+        Использует сравнение длины списка и множества (полученного из этого списка) 
+        для проверки уникальности его элементов.
+        (В множестве хранятся только уникальные элементы, 
+        поэтому длины будут равны только если в списке тоже только уникальные аргументы).
 
         Params:
             Specimen: - особь для проверки
@@ -269,8 +271,8 @@ class GeneticAlgorithm:
         # Используем ранжирование вместо инвертирования
         fitness_values = [specimen.fitness for specimen in self.population]
 
-        total_fitness = self.population_fitness()
-        expected_counts = [total_fitness / fitness for fitness in fitness_values]
+        population_fitness = self.population_fitness()
+        expected_counts = [population_fitness / fitness for fitness in fitness_values]
 
         roulette = []
 

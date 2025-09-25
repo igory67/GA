@@ -164,4 +164,3 @@ if __name__ == "__main__":
     test_crossover()
     test_select_parents_inbreeding()
     test_roulette_selection()
-    test_population_fitness()
