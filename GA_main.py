@@ -298,12 +298,9 @@ class GeneticAlgorithm:
         
         self.population = new_population
 
-    def run_one_iteration(self) -> Tuple[int, Specimen]:
+    def run_one_iteration(self):
         """
         Запускает одну итерацию генетического алгоритма.
-        
-        Returns:
-        Tuple[int, Specimen] - лучшая приспособленность и лучшая особь
         """
         # 1. Проверяем, сгенерирована ли популяция
         if not self.population:
@@ -325,33 +322,52 @@ class GeneticAlgorithm:
             
             offspring_population.append(offspring)
 
-        # 3. Отбор в новую популяцию
-        self.roulette_selection()
-        
-        # 4. Возвращаем результаты
-        best_fitness, best_specimen = self.find_best_specimen()
+        # 3. Добавляем потомков в популяцию
+        self.population.extend(offspring_population)
 
-        return best_fitness, best_specimen
+        # 4. Отбор в новую популяцию
+        self.roulette_selection()
+
+    def run_algorithm(self):
+        """
+        Запускает генетический алгоритм.
+        """
+        # Генерируем начальную популяцию
+        self.generate_population()
+        
+        previos_population_fitness = self.population_fitness()
+        best_fitness, best_specimen = self.find_best_specimen()
+        print(f"Начальная приспособленность популяции = {round(previos_population_fitness, 1)}")
+        print(f"Приспособленность лучшей особи = {round(best_fitness, 1)}, вектор = {best_specimen.vector}\n")
+
+        for i in range(1, self.max_number_iterations + 1):
+            self.run_one_iteration()
+            current_population_fitness = self.population_fitness()
+            best_fitness, best_specimen = self.find_best_specimen()
+
+            print(f"{i}. Приспособленность популяции = {round(current_population_fitness, 1)}")
+            print(f" Приспособленность лучшей особи = {round(best_fitness, 1)}, вектор = {best_specimen.vector}\n")
+
+            # Проверка на стагнацию
+            if abs(previos_population_fitness - current_population_fitness) < self.stagnation:
+                print(f"Остановка из-за стагнации на итерации {i}.")
+                break
+            
+            previos_population_fitness = current_population_fitness
+        
+        print("Алгоритм завершен.")
+        print(f"Лучшая найденная приспособленность: {round(best_fitness, 1)}")
+        print(f"Лучший найденный вектор: {best_specimen.vector}")
+        return best_specimen
 
 
 def main():
     print("HI!")
      # Создаем объект алгоритма
-    ga = GeneticAlgorithm(population_size = 20, mutation_rate = 0.2, max_number_iterations = 20, stagnation = 0)
+    ga = GeneticAlgorithm(population_size=20, mutation_rate=0.2, max_number_iterations=500, stagnation=0.1)
     
-    # Генерируем начальную популяцию
-    ga.generate_population()
-    initial_fitness, initial_specimen = ga.find_best_specimen()
-    population_fitness = ga.population_fitness()
-    print(f"Начальная приспособленность популяции = {round(population_fitness, 1)}")
-    print(f"Приспособленность лучшей особи = {round(initial_fitness, 1)}, вектор = {initial_specimen.vector}\n")
-
-    for i in range (1, ga.max_number_iterations):
-        best_fitness, best_specimen = ga.run_one_iteration()
-        population_fitness = ga.population_fitness()
-        if i % 1 == 0:
-            print(f"{i}. Приспособленность популяции = {round(population_fitness, 1)}")
-            print(f" Приспособленность лучшей особи = {round(best_fitness, 1)}, вектор = {best_specimen.vector}\n")
+    # Запускаем алгоритм
+    ga.run_algorithm()
 
 if __name__ == "__main__":
     main()
