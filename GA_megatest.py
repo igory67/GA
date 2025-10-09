@@ -3,7 +3,7 @@ import time
 import numpy as np
 from typing import List, Tuple, Dict
 import pandas as pd
-from GA_main_newest import GeneticAlgorithm, Specimen  
+from GA_main import GeneticAlgorithm, Specimen  
 
 def example_function(ga: GeneticAlgorithm, num_iterations: int) -> Tuple[List[float], List[Specimen], float]:
     """
