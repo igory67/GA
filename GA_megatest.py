@@ -186,9 +186,9 @@ def run_comprehensive_analysis():
     """
     # Параметры тестирования
     population_sizes = [10, 20, 30, 40]
-    number_of_objects = 200
+    number_of_objects = 20
     mutation_rate = 0.2
-    num_iterations = 60000
+    num_iterations = 1000
 
     stagnation = 0.1
     stagnation_max_val = 30
