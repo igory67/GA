@@ -26,7 +26,8 @@ def setup_ga_instance() -> GeneticAlgorithm:
         population_size=TEST_POPULATION_SIZE, 
         mutation_rate=0.1, 
         max_number_iterations=100, 
-        stagnation=0
+        stagnation=0,
+        number_of_objects=10
     )
     ga.vector_size = TEST_VECTOR_SIZE
     ga.cost_matrix = TEST_COST_MATRIX

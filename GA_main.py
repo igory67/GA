@@ -11,7 +11,7 @@ class Specimen:
 
 class GeneticAlgorithm:
 
-    def __init__(self, population_size, mutation_rate, max_number_iterations, stagnation) -> None:
+    def __init__(self, population_size, mutation_rate, number_of_objects, max_number_iterations, stagnation) -> None:
         '''
         Создание объекта класса GeneticAlgorithm
         '''
@@ -19,16 +19,26 @@ class GeneticAlgorithm:
         self.population_size = population_size # N - размер популяции
         self.max_number_iterations = max_number_iterations # T - максимальное количество итераций
         self.stagnation = stagnation # epsilon - разницы между поколениями
-        self.vector_size = 20 # n - количество предприятий (ресурсов)
+        self.vector_size = number_of_objects # n - количество предприятий (ресурсов)
 
         # данные для заполнения матрицы стоимостей случайными значениями
         self.min_cost = 1 # минимальное значение матрицы
         self.max_cost = 100 # максимальное значение матрицы
 
-        self.cost_matrix = np.random.randint(self.min_cost, self.max_cost, 
-                                             size=(self.vector_size, self.vector_size)) # заполнение матрицы
+        #self.cost_matrix = np.random.randint(self.min_cost, self.max_cost, 
+         #                                    size=(self.vector_size, self.vector_size)) # заполнение матрицы
+        
+        self.cost_matrix = self.create_N_matrix(number_of_objects) 
         self.population: List[Specimen] = [] # популяция (массив особей)
 
+    def create_N_matrix(self, N : int) -> list:
+        # result_matrix = [[20]*N]*N
+        result_matrix = [[20] * N for _ in range(N) ]
+        for i in range (N):
+            result_matrix [i][i] = 1
+        
+        return result_matrix
+    
     def generation_individual(self) -> Specimen:
         """
         Генерирует случайную особь - допустимое решение задачи о назначениях.
@@ -267,7 +277,11 @@ class GeneticAlgorithm:
     def roulette_selection(self):
         """
         Отбор особей в новую популяцию с помощью рулетки
+        Добавлен элитизм: одна лучшая особь гарантированно попадает в новую популяцию
         """
+        # Находим лучшую особь
+        best_fitness, best_specimen = self.find_best_specimen()
+        
         # Используем ранжирование вместо инвертирования
         fitness_values = [specimen.fitness for specimen in self.population]
 
@@ -290,17 +304,23 @@ class GeneticAlgorithm:
 
         new_population = []
 
-        # Запуск рулетки N раз
-        for _ in range (self.population_size): 
+        # Добавляем лучшую особь гарантированно
+        new_population.append(best_specimen)
+
+        # Запуск рулетки N-1 раз (так как одну особь уже добавили)
+        for _ in range (self.population_size - 1): 
             pointer = random.randint(0, len(roulette) - 1)
             new_gen = self.population[roulette[pointer]]
             new_population.append(new_gen)
         
         self.population = new_population
 
-    def run_one_iteration(self):
+    def run_one_iteration(self) -> Tuple[int, Specimen]:
         """
         Запускает одну итерацию генетического алгоритма.
+        
+        Returns:
+        Tuple[int, Specimen] - лучшая приспособленность и лучшая особь
         """
         # 1. Проверяем, сгенерирована ли популяция
         if not self.population:
@@ -322,52 +342,36 @@ class GeneticAlgorithm:
             
             offspring_population.append(offspring)
 
-        # 3. Добавляем потомков в популяцию
-        self.population.extend(offspring_population)
+        self.population += offspring_population
 
-        # 4. Отбор в новую популяцию
+        # 3. Отбор в новую популяцию
         self.roulette_selection()
-
-    def run_algorithm(self):
-        """
-        Запускает генетический алгоритм.
-        """
-        # Генерируем начальную популяцию
-        self.generate_population()
         
-        previos_population_fitness = self.population_fitness()
+        # 4. Возвращаем результаты
         best_fitness, best_specimen = self.find_best_specimen()
-        print(f"Начальная приспособленность популяции = {round(previos_population_fitness, 1)}")
-        print(f"Приспособленность лучшей особи = {round(best_fitness, 1)}, вектор = {best_specimen.vector}\n")
 
-        for i in range(1, self.max_number_iterations + 1):
-            self.run_one_iteration()
-            current_population_fitness = self.population_fitness()
-            best_fitness, best_specimen = self.find_best_specimen()
+        return best_fitness, best_specimen
 
-            print(f"{i}. Приспособленность популяции = {round(current_population_fitness, 1)}")
+
+def main_one_population():
+    #  # Создаем объект алгоритма
+    ga = GeneticAlgorithm(population_size = 20, mutation_rate = 0.2, max_number_iterations = 20, stagnation = 0, number_of_objects=10)
+    print(ga.create_N_matrix(10))
+
+
+    # Генерируем начальную популяцию
+    ga.generate_population()
+    initial_fitness, initial_specimen = ga.find_best_specimen()
+    population_fitness = ga.population_fitness()
+    print(f"Начальная приспособленность популяции = {round(population_fitness, 1)}")
+    print(f"Приспособленность лучшей особи = {round(initial_fitness, 1)}, вектор = {initial_specimen.vector}\n")
+
+    for i in range (1, ga.max_number_iterations):
+        best_fitness, best_specimen = ga.run_one_iteration()
+        population_fitness = ga.population_fitness()
+        if i % 1 == 0:
+            print(f"{i}. Приспособленность популяции = {round(population_fitness, 1)}")
             print(f" Приспособленность лучшей особи = {round(best_fitness, 1)}, вектор = {best_specimen.vector}\n")
 
-            # Проверка на стагнацию
-            if abs(previos_population_fitness - current_population_fitness) < self.stagnation:
-                print(f"Остановка из-за стагнации на итерации {i}.")
-                break
-            
-            previos_population_fitness = current_population_fitness
-        
-        print("Алгоритм завершен.")
-        print(f"Лучшая найденная приспособленность: {round(best_fitness, 1)}")
-        print(f"Лучший найденный вектор: {best_specimen.vector}")
-        return best_specimen
-
-
-def main():
-    print("HI!")
-     # Создаем объект алгоритма
-    ga = GeneticAlgorithm(population_size=20, mutation_rate=0.2, max_number_iterations=500, stagnation=0.1)
-    
-    # Запускаем алгоритм
-    ga.run_algorithm()
-
 if __name__ == "__main__":
-    main()
+    main_one_population()
