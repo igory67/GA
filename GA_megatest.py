@@ -43,8 +43,8 @@ def example_function(ga: GeneticAlgorithm, num_iterations: int, stagnation_max_v
 
         if abs(current_fitness - last_fitness) < ga.stagnation:
             stagnation_counter += 1
-            if (stagnation_counter > 2):
-                print("stagnation ", stagnation_counter, "best ", local_best_fitness)
+            # if (stagnation_counter > 2):
+            #     print("stagnation ", stagnation_counter, "best ", local_best_fitness)
 
         else:
             stagnation_counter = 0            
@@ -185,14 +185,13 @@ def run_comprehensive_analysis():
     Проводит комплексный анализ алгоритма для разных размеров популяции.
     """
     # Параметры тестирования
-    population_sizes = [30,40,50,60,70,80,90]#[40,50,70,80,90,100]#[20,50,70,100]#[20, 30, 50, 70, 90, 100]#, 200, 300]
-    # population_sizes = [2, 20, 30, 100]#, 200, 300]
-    number_of_objects = 18#20#0
-    mutation_rate = 0.2#0.15#0.2
-    num_iterations = 7500#200
+    population_sizes = [10, 20, 30, 40]
+    number_of_objects = 200
+    mutation_rate = 0.2
+    num_iterations = 60000
 
     stagnation = 0.1
-    stagnation_max_val = 3
+    stagnation_max_val = 30
     
     performance_results = {}
     fitness_results = {}
