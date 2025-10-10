@@ -48,11 +48,13 @@ class Islands:
 
     def migrate(self):
         """
-        Миграция особей между островами по кольцу.
+        Миграция особей между островами по кольцу с элитизмом.
         С каждого острова:
-         - лучшая особь (min fitness)
-         - случайная особь (из оставшихся)
+         - лучшая особь (min fitness) - копируется
+         - случайная особь (из оставшихся) - копируется
         Переходят на следующий остров (последний → первый).
+        Элитные особи остаются на исходном острове.
+        После добавления мигрирующих особей удаляются две худшие особи для сохранения размера популяции.
         """
         best_and_random_pairs = []
 
@@ -69,12 +71,18 @@ class Islands:
             next_island = self.islands[(i + 1) % self.num_islands]
             best, rand = best_and_random_pairs[i]
 
+            # Создаем копии особей для миграции (элитизм - оригиналы остаются)
+            best_copy = Specimen(best.vector.copy(), best.fitness)
+            rand_copy = Specimen(rand.vector.copy(), rand.fitness)
 
-            # Удаляем этих особей с текущего острова
-            island.population = [s for s in island.population if s not in (best, rand)]
-
-            next_island.population.extend([best, rand])
-
+            # Добавляем копии на следующий остров
+            next_island.population.extend([best_copy, rand_copy])
+            
+            # Удаляем две худшие особи для сохранения размера популяции
+            # Сортируем популяцию по приспособленности (по возрастанию - худшие в конце)
+            next_island.population.sort(key=lambda x: x.fitness)
+            # Удаляем две худшие особи
+            next_island.population = next_island.population[:-2]
 
     def run(self):
         """
@@ -133,20 +141,26 @@ class Islands:
         return best_overall_fitness, best_specimen
 
 
-num_islands = 10
-population_size = 15
-mutation_rate = 0.1
-number_of_objects = 25
-max_number_iterations = 3000
-stagnation = 0.5
-migration_interval = 10
-population_stagnation = 10
-a = Islands(num_islands, population_size, 
-                 mutation_rate,
-                 number_of_objects,
-                 max_number_iterations,
-                 stagnation,
-                 migration_interval,
-                 population_stagnation)
+def parallel_genetic_algorithm():
+    num_islands = 10
+    population_size = 15
+    mutation_rate = 0.1
+    number_of_objects = 25
+    max_number_iterations = 3000
+    stagnation = 0.5
+    migration_interval = 10
+    population_stagnation = 10
 
-a.run()
+    a = Islands(num_islands, 
+                    population_size, 
+                    mutation_rate,
+                    number_of_objects,
+                    max_number_iterations,
+                    stagnation,
+                    migration_interval,
+                    population_stagnation)
+
+    a.run()
+
+if __name__ == "__main__":
+    parallel_genetic_algorithm()

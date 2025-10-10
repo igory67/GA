@@ -2,7 +2,6 @@ import matplotlib.pyplot as plt
 import time
 import numpy as np
 from typing import List, Tuple, Dict
-import pandas as pd
 from GA_main import GeneticAlgorithm, Specimen  
 
 def example_function(ga: GeneticAlgorithm, num_iterations: int, stagnation_max_val) -> Tuple[List[float], List[Specimen], float]:
@@ -344,8 +343,5 @@ def plot_fitness_dynamics(best_fitness_history: List[float], avg_fitness_history
     plt.tight_layout()
     plt.show()
 
-
-
 if __name__ == "__main__":
-
     run_comprehensive_analysis()

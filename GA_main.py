@@ -277,10 +277,13 @@ class GeneticAlgorithm:
     def roulette_selection(self):
         """
         Отбор особей в новую популяцию с помощью рулетки
+        Добавлен элитизм: одна лучшая особь гарантированно попадает в новую популяцию
         """
+        # Находим лучшую особь
+        best_fitness, best_specimen = self.find_best_specimen()
+        
         # Используем ранжирование вместо инвертирования
         fitness_values = [specimen.fitness for specimen in self.population]
-
 
         population_fitness = self.population_fitness()
         expected_counts = [population_fitness / fitness for fitness in fitness_values]
@@ -301,8 +304,11 @@ class GeneticAlgorithm:
 
         new_population = []
 
-        # Запуск рулетки N раз
-        for _ in range (self.population_size): 
+        # Добавляем лучшую особь гарантированно
+        new_population.append(best_specimen)
+
+        # Запуск рулетки N-1 раз (так как одну особь уже добавили)
+        for _ in range (self.population_size - 1): 
             pointer = random.randint(0, len(roulette) - 1)
             new_gen = self.population[roulette[pointer]]
             new_population.append(new_gen)
@@ -347,27 +353,25 @@ class GeneticAlgorithm:
         return best_fitness, best_specimen
 
 
-
-def main():
-    print("HI!")
-     # Создаем объект алгоритма
+def main_one_population():
+    #  # Создаем объект алгоритма
     ga = GeneticAlgorithm(population_size = 20, mutation_rate = 0.2, max_number_iterations = 20, stagnation = 0, number_of_objects=10)
     print(ga.create_N_matrix(10))
 
 
     # Генерируем начальную популяцию
-    # ga.generate_population()
-    # initial_fitness, initial_specimen = ga.find_best_specimen()
-    # population_fitness = ga.population_fitness()
-    # print(f"Начальная приспособленность популяции = {round(population_fitness, 1)}")
-    # print(f"Приспособленность лучшей особи = {round(initial_fitness, 1)}, вектор = {initial_specimen.vector}\n")
+    ga.generate_population()
+    initial_fitness, initial_specimen = ga.find_best_specimen()
+    population_fitness = ga.population_fitness()
+    print(f"Начальная приспособленность популяции = {round(population_fitness, 1)}")
+    print(f"Приспособленность лучшей особи = {round(initial_fitness, 1)}, вектор = {initial_specimen.vector}\n")
 
-    # for i in range (1, ga.max_number_iterations):
-    #     best_fitness, best_specimen = ga.run_one_iteration()
-    #     population_fitness = ga.population_fitness()
-    #     if i % 1 == 0:
-    #         print(f"{i}. Приспособленность популяции = {round(population_fitness, 1)}")
-    #         print(f" Приспособленность лучшей особи = {round(best_fitness, 1)}, вектор = {best_specimen.vector}\n")
+    for i in range (1, ga.max_number_iterations):
+        best_fitness, best_specimen = ga.run_one_iteration()
+        population_fitness = ga.population_fitness()
+        if i % 1 == 0:
+            print(f"{i}. Приспособленность популяции = {round(population_fitness, 1)}")
+            print(f" Приспособленность лучшей особи = {round(best_fitness, 1)}, вектор = {best_specimen.vector}\n")
 
 if __name__ == "__main__":
-    main()
+    main_one_population()
