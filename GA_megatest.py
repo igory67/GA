@@ -2,7 +2,8 @@ import matplotlib.pyplot as plt
 import time
 import numpy as np
 from typing import List, Tuple, Dict
-from GA_main import GeneticAlgorithm, Specimen  
+from GA_main import GeneticAlgorithm, Specimen
+from Island import Islands  
 
 def example_function(ga: GeneticAlgorithm, num_iterations: int, stagnation_max_val) -> Tuple[List[float], List[Specimen], float]:
     """
@@ -76,6 +77,102 @@ def example_function(ga: GeneticAlgorithm, num_iterations: int, stagnation_max_v
     execution_time = time.time() - start_time
     
     return best_fitness_history, best_specimen_history, execution_time,avg_fitness_history,iteration_counter
+
+def example_islands_function(islands: Islands, num_iterations: int, stagnation_max_val) -> Tuple[List[float], List[Specimen], float, List[Dict]]:
+    """
+    Запускает островную модель генетического алгоритма на заданное количество итераций и собирает статистику.
+    
+    Parameters:
+    islands: Islands - объект островной модели
+    num_iterations: int - количество итераций для выполнения
+    stagnation_max_val: int - максимальное количество итераций стагнации
+    
+    Returns:
+        - список лучших приспособленностей на каждой итерации
+        - список лучших особей на каждой итерации
+        - время выполнения в секундах
+        - список результатов завершенных островов
+    """
+    best_fitness_history = []
+    best_specimen_history = []
+    
+    start_time = time.time()
+    
+    # Получаем начальное состояние
+    best_fitness, best_specimen = islands.find_global_best()
+    best_fitness_history.append(best_fitness)
+    best_specimen_history.append(best_specimen)
+    
+    initial_active_islands = len(islands.active_islands)
+    print(f"Начальное количество активных островов: {initial_active_islands}")
+
+    for i in range(1, num_iterations):
+        # Проверяем, остались ли активные острова
+        if len(islands.active_islands) == 0:
+            print(f"Все острова остановлены на итерации {i}")
+            break
+            
+        # Выполняем одну итерацию на каждом активном острове
+        for island_idx in islands.active_islands:
+            island = islands.islands[island_idx]
+            island.run_one_iteration()
+            
+            # Проверяем стагнацию для каждого острова отдельно
+            current_fitness = island.population_fitness()
+            prev_fitness = islands.island_prev_fitness[island_idx]
+            
+            if abs(current_fitness - prev_fitness) < islands.stagnation:
+                islands.island_stagnation_counters[island_idx] += 1
+                if islands.island_stagnation_counters[island_idx] >= stagnation_max_val:
+                    # Остров достиг стагнации - сохраняем результат и исключаем из активных
+                    best_fitness, best_specimen = island.find_best_specimen()
+                    islands.completed_results.append({
+                        'island_idx': island_idx,
+                        'best_fitness': best_fitness,
+                        'best_specimen': best_specimen,
+                        'iteration': i,
+                        'reason': 'stagnation'
+                    })
+                    islands.active_islands.remove(island_idx)
+                    print(f"Остров {island_idx} остановлен по стагнации на итерации {i}, лучшая приспособленность = {best_fitness}")
+            else:
+                islands.island_stagnation_counters[island_idx] = 0
+                
+            islands.island_prev_fitness[island_idx] = current_fitness
+
+        # Миграция по интервалу (только между активными островами)
+        if i % islands.migration_interval == 0 and len(islands.active_islands) > 1:
+            islands.migrate()
+            print(f"--- Миграция после {i} поколений (активных островов: {len(islands.active_islands)}) ---")
+
+        # Обновляем глобальный лучший результат
+        current_best_fitness, current_best_specimen = islands.find_global_best()
+        best_fitness_history.append(current_best_fitness)
+        best_specimen_history.append(current_best_specimen)
+        
+        # Вывод информации каждые 10 итераций
+        if i % 10 == 0 or i == 1:
+            active_count = len(islands.active_islands)
+            completed_count = len(islands.completed_results)
+            print(f"Итерация {i}: Активных островов: {active_count}, завершенных: {completed_count}, лучшая приспособленность = {current_best_fitness:.2f}")
+
+    # Сохраняем результаты всех активных островов
+    for island_idx in islands.active_islands:
+        best_fitness, best_specimen = islands.islands[island_idx].find_best_specimen()
+        islands.completed_results.append({
+            'island_idx': island_idx,
+            'best_fitness': best_fitness,
+            'best_specimen': best_specimen,
+            'iteration': num_iterations,
+            'reason': 'max_iterations'
+        })
+
+    execution_time = time.time() - start_time
+    
+    print(f"Общее время выполнения: {execution_time:.3f} секунд")
+    print(f"Итоговое количество завершенных островов: {len(islands.completed_results)}")
+    
+    return best_fitness_history, best_specimen_history, execution_time, islands.completed_results
 
 def plot_convergence(best_fitness_history: List[float], population_size: int, 
                     mutation_rate: float, num_iterations: int, minim_fitness : int):
@@ -245,7 +342,7 @@ def run_comprehensive_analysis():
     print("\n" + "=" * 70)
     print("СРАВНИТЕЛЬНЫЙ АНАЛИЗ")
     print("=" * 70)
-#общиеграфики
+    #общиеграфики
     plot_performance_comparison(performance_results)
     plot_final_fitness_comparison(fitness_results)
     
@@ -342,5 +439,202 @@ def plot_fitness_dynamics(best_fitness_history: List[float], avg_fitness_history
     plt.tight_layout()
     plt.show()
 
+def run_islands_comprehensive_analysis():
+    """
+    Проводит комплексный анализ островной модели генетического алгоритма.
+    """
+    # Параметры тестирования
+    num_islands = 5
+    population_sizes = [10, 15, 20]
+    number_of_objects = 15
+    mutation_rate = 0.1
+    num_iterations = 1000
+    migration_interval = 10
+    stagnation = 0.5
+    stagnation_max_val = 10
+    
+    print("=" * 70)
+    print("АНАЛИЗ ОСТРОВНОЙ МОДЕЛИ ГЕНЕТИЧЕСКОГО АЛГОРИТМА")
+    print("=" * 70)
+    
+    for pop_size in population_sizes:
+        print(f"\nТестирование для размера популяции N = {pop_size}")
+        print("-" * 50)
+        
+        # Создаем островную модель
+        islands = Islands(
+            num_islands=num_islands,
+            population_size=pop_size,
+            mutation_rate=mutation_rate,
+            number_of_objects=number_of_objects,
+            max_number_iterations=num_iterations,
+            stagnation=stagnation,
+            migration_interval=migration_interval,
+            population_stagnation=stagnation_max_val
+        )
+        
+        # Запускаем анализ
+        best_fitness_history, best_specimen_history, execution_time, completed_results = example_islands_function(
+            islands, num_iterations, stagnation_max_val
+        )
+        
+        # Анализируем результаты
+        final_best_fitness = best_fitness_history[-1]
+        stagnation_count = sum(1 for result in completed_results if result['reason'] == 'stagnation')
+        max_iterations_count = sum(1 for result in completed_results if result['reason'] == 'max_iterations')
+        
+        print(f"Размер популяции: {pop_size}")
+        print(f"Количество островов: {num_islands}")
+        print(f"Время выполнения: {execution_time:.3f} секунд")
+        print(f"Финальная лучшая приспособленность: {final_best_fitness:.2f}")
+        print(f"Остановлено по стагнации: {stagnation_count} островов")
+        print(f"Остановлено по макс. итерациям: {max_iterations_count} островов")
+        print(f"Общее количество завершенных островов: {len(completed_results)}")
+        
+        # Показываем лучшие результаты по островам
+        print("\nРезультаты по островам:")
+        for result in sorted(completed_results, key=lambda x: x['best_fitness']):
+            print(f"  Остров {result['island_idx']}: приспособленность = {result['best_fitness']:.2f}, "
+                  f"итерация = {result['iteration']}, причина = {result['reason']}")
+        
+        print("-" * 50)
+
+def plot_islands_analysis(best_fitness_history: List[float], completed_results: List[Dict], 
+                         population_size: int, num_islands: int, execution_time: float):
+    """
+    Строит графики для анализа островной модели генетического алгоритма.
+    """
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6))
+    
+    # График 1: Динамика лучшей приспособленности
+    iterations = range(1, len(best_fitness_history) + 1)
+    ax1.plot(iterations, best_fitness_history, linewidth=2, color='blue', alpha=0.8)
+    ax1.set_xlabel('Номер итерации')
+    ax1.set_ylabel('Лучшая приспособленность')
+    ax1.set_title(f'Динамика лучшей приспособленности\n(N={population_size}, островов={num_islands})')
+    ax1.grid(True, alpha=0.3)
+    
+    # Добавляем аннотацию с финальным результатом
+    final_fitness = best_fitness_history[-1]
+    ax1.annotate(f'Финал: {final_fitness:.2f}', 
+                xy=(len(best_fitness_history), final_fitness),
+                xytext=(-80, 20), textcoords='offset points', 
+                arrowprops=dict(arrowstyle='->', color='gray', lw=1),
+                bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", alpha=0.8))
+    
+    # График 2: Время остановки островов
+    stagnation_islands = [r for r in completed_results if r['reason'] == 'stagnation']
+    max_iter_islands = [r for r in completed_results if r['reason'] == 'max_iterations']
+    
+    if stagnation_islands:
+        ax2.scatter([r['island_idx'] for r in stagnation_islands], 
+                   [r['iteration'] for r in stagnation_islands],
+                   color='red', s=100, alpha=0.7, label='Стагнация', marker='o')
+    
+    if max_iter_islands:
+        ax2.scatter([r['island_idx'] for r in max_iter_islands], 
+                   [r['iteration'] for r in max_iter_islands],
+                   color='blue', s=100, alpha=0.7, label='Макс. итерации', marker='s')
+    
+    ax2.set_xlabel('Номер острова')
+    ax2.set_ylabel('Итерация остановки')
+    ax2.set_title('Время остановки островов')
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
+    
+    # График 3: Распределение результатов по островам
+    island_indices = [result['island_idx'] for result in completed_results]
+    island_fitness = [result['best_fitness'] for result in completed_results]
+    
+    bars = ax3.bar(island_indices, island_fitness, color='skyblue', alpha=0.7, edgecolor='black')
+    ax3.set_xlabel('Номер острова')
+    ax3.set_ylabel('Лучшая приспособленность')
+    ax3.set_title('Результаты по островам')
+    ax3.grid(True, alpha=0.3, axis='y')
+    
+    # Добавляем значения на столбцы
+    for bar, fitness in zip(bars, island_fitness):
+        height = bar.get_height()
+        ax3.text(bar.get_x() + bar.get_width()/2., height + 0.1,
+                f'{fitness:.1f}', ha='center', va='bottom', fontsize=8)
+    
+    # Добавляем общую информацию
+    plt.figtext(0.5, 0.02, 
+                f'Общая статистика: {len(completed_results)} островов, '
+                f'лучший результат: {final_fitness:.2f}, '
+                f'время выполнения: {execution_time:.3f}с',
+                ha='center', fontsize=10, 
+                bbox=dict(boxstyle="round,pad=0.5", fc="lightgray", alpha=0.8))
+    
+    plt.tight_layout()
+    plt.subplots_adjust(bottom=0.1)
+    plt.show()
+
+def run_islands_comprehensive_analysis_with_plots():
+    """
+    Проводит комплексный анализ островной модели с графиками.
+    """
+    # Параметры тестирования
+    num_islands = 5
+    population_sizes = [10, 15, 20]
+    number_of_objects = 15
+    mutation_rate = 0.1
+    num_iterations = 1000
+    migration_interval = 10
+    stagnation = 0.5
+    stagnation_max_val = 15
+    
+    print("=" * 70)
+    print("АНАЛИЗ ОСТРОВНОЙ МОДЕЛИ ГЕНЕТИЧЕСКОГО АЛГОРИТМА С ГРАФИКАМИ")
+    print("=" * 70)
+    
+    for pop_size in population_sizes:
+        print(f"\nТестирование для размера популяции N = {pop_size}")
+        print("-" * 50)
+        
+        # Создаем островную модель
+        islands = Islands(
+            num_islands=num_islands,
+            population_size=pop_size,
+            mutation_rate=mutation_rate,
+            number_of_objects=number_of_objects,
+            max_number_iterations=num_iterations,
+            stagnation=stagnation,
+            migration_interval=migration_interval,
+            population_stagnation=stagnation_max_val
+        )
+        
+        # Запускаем анализ
+        best_fitness_history, best_specimen_history, execution_time, completed_results = example_islands_function(
+            islands, num_iterations, stagnation_max_val
+        )
+        
+        # Анализируем результаты
+        final_best_fitness = best_fitness_history[-1]
+        stagnation_count = sum(1 for result in completed_results if result['reason'] == 'stagnation')
+        max_iterations_count = sum(1 for result in completed_results if result['reason'] == 'max_iterations')
+        
+        print(f"Размер популяции: {pop_size}")
+        print(f"Количество островов: {num_islands}")
+        print(f"Время выполнения: {execution_time:.3f} секунд")
+        print(f"Финальная лучшая приспособленность: {final_best_fitness:.2f}")
+        print(f"Остановлено по стагнации: {stagnation_count} островов")
+        print(f"Остановлено по макс. итерациям: {max_iterations_count} островов")
+        print(f"Общее количество завершенных островов: {len(completed_results)}")
+        
+        # Показываем лучшие результаты по островам
+        print("\nРезультаты по островам:")
+        for result in sorted(completed_results, key=lambda x: x['best_fitness']):
+            print(f"  Остров {result['island_idx']}: приспособленность = {result['best_fitness']:.2f}, "
+                  f"итерация = {result['iteration']}, причина = {result['reason']}")
+        
+        print("-" * 50)
+        
+        # Строим графики для текущего размера популяции
+        plot_islands_analysis(best_fitness_history, completed_results, pop_size, num_islands, execution_time)
+
+
 if __name__ == "__main__":
     run_comprehensive_analysis()
+    print("\n" + "="*70)
+    run_islands_comprehensive_analysis_with_plots()

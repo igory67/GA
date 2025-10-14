@@ -355,7 +355,13 @@ class GeneticAlgorithm:
 
 def main_one_population():
     #  # Создаем объект алгоритма
-    ga = GeneticAlgorithm(population_size = 20, mutation_rate = 0.2, max_number_iterations = 20, stagnation = 0, number_of_objects=10)
+    ga = GeneticAlgorithm(
+        population_size = 20, 
+        mutation_rate = 0.2, 
+        max_number_iterations = 20, 
+        stagnation = 0, 
+        number_of_objects=10
+    )
     print(ga.create_N_matrix(10))
 
 
